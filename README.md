@@ -1,79 +1,59 @@
-# basic-rag-api
+# Basic RAG API
 
-A basic Retrieval-Augmented Generation API built with FastAPI, Ollama, and ChromaDB.
+A simple local Retrieval-Augmented Generation API built with FastAPI, ChromaDB, and Ollama.
 
-The goal of this project is to expose a simple local RAG workflow over HTTP:
+This project uses the text in `profile.txt` as a small knowledge base. The `build_knowledge_base.py` script splits that profile into chunks, stores them in ChromaDB, and uses Ollama to create embeddings. The FastAPI app then answers questions by retrieving relevant profile chunks and sending them to a local Ollama chat model.
 
-1. Ingest documents.
-2. Chunk and embed the content.
-3. Store embeddings in ChromaDB.
-4. Retrieve relevant context for a user question.
-5. Generate an answer with a local Ollama model.
+## What This Project Does
 
-## Tech Stack
+1. Reads your personal profile from `profile.txt`.
+2. Splits the profile into paragraph chunks.
+3. Stores those chunks in a local ChromaDB database.
+4. Accepts a question through the API.
+5. Retrieves the most relevant profile chunks.
+6. Sends the question and retrieved context to Ollama.
+7. Returns the answer and the context used.
 
-- FastAPI for the HTTP API
-- Ollama for local LLM and embedding model inference
-- ChromaDB for local vector storage
-- Python for the application runtime
+## Project Files
 
-## Planned API
-
-### Health Check
-
-```http
-GET /health
+```text
+basic-rag-api/
+  build_knowledge_base.py  # Builds the local ChromaDB knowledge base
+  main.py                  # FastAPI app with the /ask endpoint
+  profile.txt              # Source text for the knowledge base
+  chroma_db/               # Generated local ChromaDB data
+  README.md
 ```
 
-Returns a basic service status.
+## Requirements
 
-### Ingest Documents
+- Python 3
+- Ollama
+- FastAPI
+- Uvicorn
+- ChromaDB
+- Ollama Python package
 
-```http
-POST /documents
+## Setup
+
+From inside the project folder:
+
+```bash
+cd basic-rag-api
 ```
 
-Adds text content to the vector database.
+Create and activate a virtual environment:
 
-Example request:
-
-```json
-{
-  "text": "FastAPI is a modern Python web framework.",
-  "metadata": {
-    "source": "manual-note"
-  }
-}
+```bash
+python3 -m venv venv
+source venv/bin/activate
 ```
 
-### Ask a Question
+Install the Python packages:
 
-```http
-POST /query
+```bash
+python3 -m pip install fastapi uvicorn chromadb ollama
 ```
-
-Retrieves relevant chunks from ChromaDB and sends them to Ollama with the user's question.
-
-Example request:
-
-```json
-{
-  "question": "What is FastAPI?"
-}
-```
-
-Example response:
-
-```json
-{
-  "answer": "FastAPI is a modern Python web framework...",
-  "sources": []
-}
-```
-
-## Local Development
-
-### 1. Install Ollama
 
 Install Ollama from:
 
@@ -81,77 +61,72 @@ Install Ollama from:
 https://ollama.com
 ```
 
-Then pull a chat model:
-
-```bash
-ollama pull llama3.1
-```
-
-Optionally pull an embedding model:
+Pull the embedding model:
 
 ```bash
 ollama pull nomic-embed-text
 ```
 
-### 2. Create a Python Environment
+Pull the chat model used by `main.py`:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+ollama pull qwen2.5:0.5b
 ```
 
-### 3. Install Dependencies
+Make sure Ollama is running before building the knowledge base or asking questions.
 
-This project will use dependencies similar to:
+## Build the Knowledge Base
+
+After editing `profile.txt`, run:
 
 ```bash
-pip install fastapi uvicorn chromadb ollama pydantic
+python build_knowledge_base.py
 ```
 
-Once a `requirements.txt` file exists, install from it instead:
+This creates or updates the local `chroma_db/` folder.
+
+## Run the API
+
+Start the FastAPI server:
 
 ```bash
-pip install -r requirements.txt
+uvicorn main:app --reload
 ```
 
-### 4. Run the API
-
-```bash
-uvicorn app.main:app --reload
-```
-
-The API should be available at:
+The API will run at:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-FastAPI docs should be available at:
+FastAPI docs are available at:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-## Project Structure
+## Ask a Question
 
-Planned structure:
+Use the `/ask` endpoint with a `question` query parameter:
 
-```text
-basic-rag-api/
-  app/
-    main.py
-    api/
-    core/
-    services/
-    models/
-  data/
-  tests/
-  README.md
-  requirements.txt
+```bash
+curl "http://127.0.0.1:8000/ask?question=What%20am%20I%20learning%20about%3F"
+```
+
+Example response:
+
+```json
+{
+  "question": "What am I learning about?",
+  "answer": "You are currently learning about cloud computing, AI, and DevOps.",
+  "context_used": [
+    "I'm currently learning about cloud computing, AI, and DevOps."
+  ]
+}
 ```
 
 ## Notes
 
-- Ollama must be running locally before the API can generate answers.
-- ChromaDB can run embedded locally for the first version.
-- The initial version should prioritize a small working RAG loop before adding auth, background jobs, or file upload support.
+- Run commands from the `basic-rag-api` folder so the scripts can find `profile.txt` and `chroma_db/`.
+- If you change `profile.txt`, run `python build_knowledge_base.py` again.
+- The API uses `nomic-embed-text` for embeddings and `qwen2.5:0.5b` for answering questions.
